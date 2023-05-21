@@ -12,7 +12,7 @@ As this is an AppDaemon application, you would of course need AppDaemon to run i
 
 ## Usage
 
-This application could be used for multiple purposes, but the intent was to specify a schedule and then let other apps or Home assistant listen to state changes from the entity representing the current time slot of the day. This entity is currently hard-coded as `input_select.daytime_slot` and will be set up as read-only to prevent other apps or users from changing it. By default, the time slot can be any of the values `morning`, `day`, `evening` or `night`. The names and number of slots can be overriden in config.
+This application could be used for multiple purposes, but the intent was to specify a schedule and then let other apps or Home assistant listen to state changes from the entity representing the current time slot of the day. This entity is currently hard-coded as `input_select.daytime_slot` and will be set up as read-only to prevent other apps or users from changing it. By default, the time slot can be any of the values `morning`, `day`, `evening` or `night`, but these names and number of slots can be overriden in config.
 
 ## App configuration
 
