@@ -11,7 +11,6 @@ import pprint
 # TODO what about sunset/sunrise that never happens (up north) or overlaps the next slot?
 # TODO sunset/sunrise with offset
 # TODO handle weekdays/weekend instead of the specific days
-# TODO add slot names to config?
 
 class DayTime(hass.Hass):
 
@@ -36,8 +35,6 @@ class DayTime(hass.Hass):
 
     time_slot_entity = 'input_select.daytime_slot'
 
-    #fake_time = datetime.fromisoformat('2023-05-20 18:15:47')
-    
     daytime_slot = None
     # TODO Remove current and use only daytime_slot
     current = None
@@ -80,16 +77,33 @@ class DayTime(hass.Hass):
 
             config = {}
 
-            # build the internal config from the yaml config, it will get
-            # verified partly by accessing the keys
+            # verify and build the internal config from the yaml config in apps.yaml
             for day_name in DayTime.day_names:
                 config[day_name] = {}
 
                 for slot in self.slots:
+                    #verify slot time config
+                    if schedule[day_name][slot]['type'] == 'fixed':
+                        # verify time format
+                        # will throw exception on faulty format
+                        self.get_fixed_time(schedule[day_name][slot]['time'])
+                    elif schedule[day_name][slot]['type'] == 'dynamic':
+                        if type(schedule[day_name][slot]['time']) == list:
+                            # verify time format
+                            # will throw exception or return None on faulty format
+                            if self.get_real_time(schedule[day_name][slot]['time']) is None:
+                                self.log("Config Error: could not parse time parameter '%s'" % str(schedule[day_name][slot]['time']))
+                                raise ValueError("Invalid configuration format: could not parse time parameter'")
+                        else:
+                            self.log("Config Error: if time type is 'dynamic', time parameter must be a list, not '%s'" % str(schedule[day_name][slot]['time']))
+                            raise ValueError("Invalid configuration format: time parameter must be a list, if time type is 'dynamic'")
+                    else:
+                        self.log("Config Error: time type most be either 'fixed' or 'dynamic', not '%s'" % str(schedule[day_name][slot]['type']))
+                        raise ValueError("Invalid configuration format: time type must be 'fixed' or 'dynamic'")
+
                     config[day_name][slot] = {
                         'type': schedule[day_name][slot]['type'],
                         'time': schedule[day_name][slot]['time']
-                        # TODO verify time format
                     }
         except KeyError as e:
             self.log("Config Error: Missing key '%s'" % (e))
@@ -235,23 +249,22 @@ class DayTime(hass.Hass):
         slot_time = None
 
         if slot_config['type'] == 'fixed':
-            slot_time = self.get_fixed_time(date, slot_config['time'])
+            slot_time = self.get_fixed_time(slot_config['time'])
 
             self.log("Fixed slot time: %s" % (slot_time))
 
         elif slot_config['type'] == 'dynamic':
-            slot_time = self.get_real_time(date, slot_config['time'])
+            slot_time = self.get_real_time(slot_config['time'])
 
             self.log("Dynamic slot time: %s" % (slot_time))
 
         return slot_time
 
-    def get_real_time(self, date, dyn_config):
+    def get_real_time(self, dyn_config):
         """
         Get the real time value for a dynamic config for a certain day.
 
         Parameters:
-        date (datetime): The date of the day to check.
         dyn_config ([str]): A list of dynamic time strings.
 
         str: A time string representing the the real time of the dynamic slot time.
@@ -268,7 +281,7 @@ class DayTime(hass.Hass):
                 real_time = self.sunset().time()
             else:
                 # Probably just a fixed time then, try to convert...
-                real_time = self.get_fixed_time(date, dyn_time)
+                real_time = self.get_fixed_time(dyn_time)
 
             self.log("Real time (%s): %s" % (dyn_time, real_time))
 
@@ -277,7 +290,7 @@ class DayTime(hass.Hass):
 
         return result
 
-    def get_fixed_time(self, date, time_str):
+    def get_fixed_time(self, time_str):
         """
         Get the fixed time from a time string with the format HH:MM.
 
@@ -320,7 +333,7 @@ class DayTime(hass.Hass):
 
     def get_time(self):
         """
-        Get the current time. Mostly for wrapping datetime.now() in case we want to fake the current time for testing.
+        Get the current time. Wrapping wrapping datetime.now() in case we want to fake the current time for testing.
 
         Returns:
         datetime: The current time.
