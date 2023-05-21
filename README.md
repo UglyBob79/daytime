@@ -1,6 +1,6 @@
 # DayTime - Day Time Slot Scheduler | AppDaemon 4.x Edition
 
-*DayTime is an [AppDaemon](https://github.com/home-assistant/appdaemon) app which is used to schedule time slots for every day of the week, that can be used for scheduling home automation by time of day.*
+*DayTime is an [AppDaemon](https://github.com/home-assistant/appdaemon) app which is used to schedule time slots for every day of the week. These slots can then be used for triggering home automations, instead of using specific time values.*
 
 ## Installation
 
