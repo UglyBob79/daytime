@@ -15,6 +15,7 @@ import pprint
 
 class DayTime(hass.Hass):
 
+    # Default slot names
     slots = [
         'morning',
         'day',
@@ -22,6 +23,7 @@ class DayTime(hass.Hass):
         'night'
     ]
 
+    # Default day names
     day_names = [
         'monday',
         'tuesday',
@@ -36,15 +38,6 @@ class DayTime(hass.Hass):
 
     #fake_time = datetime.fromisoformat('2023-05-20 18:15:47')
     
-    config = None
-
-    timers = {
-        'morning' : None,
-        'day' : None,
-        'evening' : None,
-        'night' : None
-    }
-
     daytime_slot = None
     # TODO Remove current and use only daytime_slot
     current = None
@@ -68,6 +61,21 @@ class DayTime(hass.Hass):
         self.log("Loading config...")
         
         try:
+            # verify optional slots config
+            if 'slots' in self.args:
+                slots = self.args['slots']
+
+                if not type(slots) == list:
+                    self.log("Config Error: slots must be a list")
+                    raise ValueError("Invalid configuration format: slots must be a list")
+
+                for slot in slots:
+                    if not type(slot) == str:
+                        self.log("Config Error: slot name must be a string, not '%s'" % str(slot))
+                        raise ValueError("Invalid configuration format: slot names must be a string")
+
+                self.slots = slots
+
             schedule = self.args['schedule']
 
             config = {}
@@ -77,14 +85,14 @@ class DayTime(hass.Hass):
             for day_name in DayTime.day_names:
                 config[day_name] = {}
 
-                for slot in DayTime.slots:
+                for slot in self.slots:
                     config[day_name][slot] = {
                         'type': schedule[day_name][slot]['type'],
                         'time': schedule[day_name][slot]['time']
                         # TODO verify time format
                     }
         except KeyError as e:
-            self.log("Config error: Missing key '%s'" % (e))
+            self.log("Config Error: Missing key '%s'" % (e))
             # re-throw to halt execution
             raise
 
@@ -101,7 +109,7 @@ class DayTime(hass.Hass):
 
         now = self.get_time()
 
-        self.current = self.calc_current(now)
+        self.current = self.calc_current_slot(now)
         self.set_state(self.daytime_slot, state=self.current)
         
         self.log("Current slot: %s" % self.current)
@@ -116,18 +124,16 @@ class DayTime(hass.Hass):
         str: The name of the input selector entity.    
         """
 
-        initial_value = DayTime.slots[0]
-
         state_attributes = {
-            "options": DayTime.slots,
-            "initial": initial_value,
+            "options": self.slots,
+            "initial": self.slots[0],
         }
 
-        self.set_state(DayTime.time_slot_entity, state=initial_value, attributes=state_attributes)
+        self.set_state(DayTime.time_slot_entity, state=self.slots[0], attributes=state_attributes)
         
         return DayTime.time_slot_entity
 
-    def calc_current(self, now: datetime):
+    def calc_current_slot(self, now: datetime):
         """
         Calculate what the current (initial) time slot is for a certain time.
 
@@ -148,7 +154,7 @@ class DayTime(hass.Hass):
             (DayTime.day_names[now.weekday()], pprint.pformat(day_schedule)))
 
         # Search backwards to find the slot we're currently started
-        for slot in DayTime.slots[::-1]:
+        for slot in self.slots[::-1]:
             if time_now >= day_schedule[slot]:
                 return slot
                 break
@@ -163,12 +169,12 @@ class DayTime(hass.Hass):
         now (datetime): The current time.
         """
 
-        next_slot = self.next_slot(self.current)
+        next_slot = self.get_next_slot(self.current)
 
         self.log("Next slot: %s" % (next_slot))
 
-        # If next slot is morning, we should check the next day
-        if next_slot == 'morning':
+        # If next slot is the first one, we should check the next day
+        if next_slot == self.slots[0]:
             now += timedelta(days=1)
 
         day_schedule = self.gen_day_schedule(now)
@@ -180,11 +186,11 @@ class DayTime(hass.Hass):
 
         self.log("Next slot (%s) time: %s" % (next_slot, slot_time))
 
-        self.run_once(self.slot_timer, slot_time, slot=next_slot)
+        self.run_once(self.on_slot_timer, slot_time, slot=next_slot)
 
-    def slot_timer(self, kwargs):
+    def on_slot_timer(self, kwargs):
         """
-        Timer event handle for the next slot timer.
+        Timer event handler for the next slot timer.
         """
 
         self.log("Slot Timer: (%s, %s)" % (self.current, kwargs['slot']))
@@ -195,7 +201,7 @@ class DayTime(hass.Hass):
 
         self.schedule_next_timer(self.get_time())
 
-    def next_slot(self, slot: str):
+    def get_next_slot(self, slot: str):
         """
         Get the name of the next time slot from a certain time slot.
 
@@ -206,7 +212,7 @@ class DayTime(hass.Hass):
         str: The name of the next time slot.
         """
 
-        return DayTime.slots[(DayTime.slots.index(slot) + 1) % len(DayTime.slots)]
+        return self.slots[(self.slots.index(slot) + 1) % len(self.slots)]
 
     def get_slot_time(self, date, slot: str):
         """
@@ -222,7 +228,6 @@ class DayTime(hass.Hass):
 
         weekday = date.weekday()
 
-        # Weekday or weekend?
         day_config = self.config[DayTime.day_names[weekday]]
 
         slot_config = day_config[slot]
@@ -299,7 +304,7 @@ class DayTime(hass.Hass):
         """
 
         # We should calculate the real time slots for this day
-        day_schedule = {slot: None for slot in DayTime.slots}
+        day_schedule = {slot: None for slot in self.slots}
 
         try:
             for slot in day_schedule.keys():
