@@ -90,6 +90,8 @@ key | optional | description
 `evening` | False | Evening slot of the day
 `night` | False | Night slot of the day
 
+**Note:** These slots and their names can be overriden by the slot configuration.
+
 #### Slot configuration
 
 key | optional | type | default | description
