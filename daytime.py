@@ -1,5 +1,4 @@
 import hassapi as hass
-import config
 from datetime import datetime, timedelta, time
 import pprint
 
@@ -12,6 +11,7 @@ import pprint
 # TODO what about sunset/sunrise that never happens (up north) or overlaps the next slot?
 # TODO sunset/sunrise with offset
 # TODO handle weekdays/weekend instead of the specific days
+# TODO add slot names to config?
 
 class DayTime(hass.Hass):
 
@@ -22,15 +22,15 @@ class DayTime(hass.Hass):
         'night'
     ]
 
-    day_names = {
-        0 : 'monday',
-        1 : 'tuesday',
-        2 : 'wednesday',
-        3 : 'thursday',
-        4 : 'friday',
-        5 : 'saturday',
-        6 : 'sunday'
-    }
+    day_names = [
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+        'sunday'
+    ]
 
     time_slot_entity = 'input_select.daytime_slot'
 
@@ -50,6 +50,10 @@ class DayTime(hass.Hass):
     current = None
 
     def initialize(self):
+        """
+       Initialize this app. This will be called by AppDaemon.
+        """
+
         self.log("Starting day time app")
 
         self.config = self.load_config()
@@ -57,6 +61,10 @@ class DayTime(hass.Hass):
         self.setup()
 
     def load_config(self):
+        """
+        Load the configuration of this app. The configuration is fetched from the apps.yaml in the AppDaemon configuration folder
+        """
+
         self.log("Loading config...")
         
         try:
@@ -66,11 +74,10 @@ class DayTime(hass.Hass):
 
             # build the internal config from the yaml config, it will get
             # verified partly by accessing the keys
-            for day_idx, day_name in DayTime.day_names.items():
+            for day_name in DayTime.day_names:
                 config[day_name] = {}
 
                 for slot in DayTime.slots:
-                    self.log(schedule[day_name][slot])
                     config[day_name][slot] = {
                         'type': schedule[day_name][slot]['type'],
                         'time': schedule[day_name][slot]['time']
@@ -84,18 +91,31 @@ class DayTime(hass.Hass):
         return config
 
     def setup(self):
+        """
+        Setup the app. Will create an input selector entity that can be used for automations. It will also calculate the initial schedule
+        and set up needed timers.
+        """
+
         # create an input selector for our time of day slot
         self.daytime_slot = self.create_time_slot_selector()
 
         now = self.get_time()
 
-        self.calc_current(now)
-
-        self.log("Current: %s" % self.current)
+        self.current = self.calc_current(now)
+        self.set_state(self.daytime_slot, state=self.current)
+        
+        self.log("Current slot: %s" % self.current)
 
         self.schedule_next_timer(now)
 
     def create_time_slot_selector(self):
+        """
+        Create a input selector representing the current time slot.
+
+        Returns:
+        str: The name of the input selector entity.    
+        """
+
         initial_value = DayTime.slots[0]
 
         state_attributes = {
@@ -108,9 +128,19 @@ class DayTime(hass.Hass):
         return DayTime.time_slot_entity
 
     def calc_current(self, now: datetime):
+        """
+        Calculate what the current (initial) time slot is for a certain time.
+
+        Parameters:
+        now (datetime): The time to use for the calculations.
+
+        Returns:
+        str: The calculated time slot or None on failure.
+        """
+
         time_now = now.time()
 
-        self.log("Time: %s" % (time_now))
+        self.log("Time now: %s" % (time_now))
 
         day_schedule = self.gen_day_schedule(now)
 
@@ -120,11 +150,19 @@ class DayTime(hass.Hass):
         # Search backwards to find the slot we're currently started
         for slot in DayTime.slots[::-1]:
             if time_now >= day_schedule[slot]:
-                self.current = slot
-                self.set_state(self.daytime_slot, state=slot)
+                return slot
                 break
 
+        return None
+
     def schedule_next_timer(self, now: datetime):
+        """
+        Schedule a timer to trigger when next time slot occurs.
+
+        Parameters:
+        now (datetime): The current time.
+        """
+
         next_slot = self.next_slot(self.current)
 
         self.log("Next slot: %s" % (next_slot))
@@ -145,6 +183,10 @@ class DayTime(hass.Hass):
         self.run_once(self.slot_timer, slot_time, slot=next_slot)
 
     def slot_timer(self, kwargs):
+        """
+        Timer event handle for the next slot timer.
+        """
+
         self.log("Slot Timer: (%s, %s)" % (self.current, kwargs['slot']))
 
         self.current = kwargs['slot']
@@ -154,9 +196,30 @@ class DayTime(hass.Hass):
         self.schedule_next_timer(self.get_time())
 
     def next_slot(self, slot: str):
+        """
+        Get the name of the next time slot from a certain time slot.
+
+        Parameters:
+        slot (str): The current time slot.
+
+        Returns:
+        str: The name of the next time slot.
+        """
+
         return DayTime.slots[(DayTime.slots.index(slot) + 1) % len(DayTime.slots)]
 
     def get_slot_time(self, date, slot: str):
+        """
+        Get the time a time slot will occur for a certain day.
+
+        Parameters:
+        date (datetime): The date of the day to check.
+        slot (str): The name of the slot to check.
+
+        Returns:
+        str: A time string representing the beginning time of the slot.
+        """
+
         weekday = date.weekday()
 
         # Weekday or weekend?
@@ -174,11 +237,21 @@ class DayTime(hass.Hass):
         elif slot_config['type'] == 'dynamic':
             slot_time = self.get_real_time(date, slot_config['time'])
 
-            self.log("Real time result: %s" % (slot_time))
+            self.log("Dynamic slot time: %s" % (slot_time))
 
         return slot_time
 
     def get_real_time(self, date, dyn_config):
+        """
+        Get the real time value for a dynamic config for a certain day.
+
+        Parameters:
+        date (datetime): The date of the day to check.
+        dyn_config ([str]): A list of dynamic time strings.
+
+        str: A time string representing the the real time of the dynamic slot time.
+        """
+
         result = None
 
         for dyn_time in dyn_config:
@@ -200,18 +273,33 @@ class DayTime(hass.Hass):
         return result
 
     def get_fixed_time(self, date, time_str):
+        """
+        Get the fixed time from a time string with the format HH:MM.
+
+        Parameters:
+        time_str (str): The time string representation.
+
+        Return:
+        datetime: A datetime time object.
+        """
+
         fixed_time = datetime.strptime(time_str, '%H:%M').time()
 
         return fixed_time
 
     def gen_day_schedule(self, date: datetime):
+        """
+        Generate the schedule for a certain day.
+
+        Parameters:
+        date (datetime): The date of the day to check.
+
+        Returns:
+        dict: The schedule for the day or None on failure.
+        """
+
         # We should calculate the real time slots for this day
-        day_schedule = {
-            'morning' : None,
-            'day' : None,
-            'evening' : None,
-            'night' : None
-        }
+        day_schedule = {slot: None for slot in DayTime.slots}
 
         try:
             for slot in day_schedule.keys():
@@ -226,6 +314,13 @@ class DayTime(hass.Hass):
             return None
 
     def get_time(self):
+        """
+        Get the current time. Mostly for wrapping datetime.now() in case we want to fake the current time for testing.
+
+        Returns:
+        datetime: The current time.
+        """
+
         if hasattr(self, 'fake_time'):
             return self.fake_time
         else:
