@@ -20,6 +20,11 @@ DayTime needs a schedule to run and it is configured directly in the AppDaemon's
 daytime:
   module: daytime
   class: DayTime
+  slots:
+    - morning
+    - day
+    - evening
+    - night
   schedule:
     monday:
       morning:
@@ -69,7 +74,8 @@ key | optional | type | default | description
 -- | -- | -- | -- | --
 `module` | False | string | daytime | The module name of the app.
 `class` | False | string | DayTime | The name of the python class.
-`schedule` | False | list | | The schedule section used to define the time slots
+`slots` | True | list | 'morning', 'day', 'evening', 'night' | The time slot names of every day.
+`schedule` | False | list | N/A | The schedule section used to define the time slots
 
 #### Day configuration
 
