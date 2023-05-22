@@ -39,6 +39,10 @@ class DayTime(hass.Hass):
         'sunday'
     ]
 
+    # helper lists for wild card days
+    weekdays = day_names[:5]
+    weekend = day_names[5:]
+
     time_slot_entity = 'input_select.daytime_slot'
 
     daytime_slot = None
@@ -74,13 +78,13 @@ class DayTime(hass.Hass):
                 slots_cfg = self.args['slots']
 
                 if not type(slots_cfg) == list:
-                    self.log("Config Error: slots must be a list")
-                    raise ValueError("Invalid configuration format: slots must be a list")
+                    self.log("Config Error: slots must be a list.")
+                    raise ValueError("Invalid configuration format: slots must be a list.")
 
                 for slot in slots_cfg:
                     if not type(slot) == str:
-                        self.log("Config Error: slot name must be a string, not '%s'" % str(slot))
-                        raise ValueError("Invalid configuration format: slot names must be a string")
+                        self.log("Config Error: slot name must be a string, not '%s'." % str(slot))
+                        raise ValueError("Invalid configuration format: slot names must be a string.")
 
                 config['slots'] = slots_cfg
             else:
@@ -91,32 +95,49 @@ class DayTime(hass.Hass):
 
             # verify and build the schedule config
             for day_name in DayTime.day_names:
+                # check if the schedule for the day exists
+                if day_name in schedule_cfg:
+                    day_schedule = schedule_cfg[day_name]
+                elif day_name in DayTime.weekdays and 'weekdays' in schedule_cfg:
+                    self.log("Using 'weekdays' schedule for '%s'" % day_name)
+                    day_schedule = schedule_cfg['weekdays']
+                elif day_name in DayTime.weekend and 'weekend' in schedule_cfg:
+                    self.log("Using 'weekend' schedule for '%s'" % day_name)
+                    day_schedule = schedule_cfg['weekend']
+                elif 'any' in schedule_cfg:
+                    self.log("Using 'any' schedule for '%s'" % day_name)
+                    day_schedule = schedule_cfg['any']
+                else:
+                    self.log("Config Error: no schedule matching '%s'." % str(day_name))
+                    raise ValueError("Invalid configuration format: missing day entries in schedule.")
+
                 config['schedule'][day_name] = {}
 
                 for slot in config['slots']:
-                    #verify slot time config
-                    if schedule_cfg[day_name][slot]['type'] == 'fixed':
+                    # verify slot time config
+                    if day_schedule[slot]['type'] == 'fixed':
                         # verify time format
                         # will throw exception on faulty format
-                        self.get_fixed_time(schedule_cfg[day_name][slot]['time'])
-                    elif schedule_cfg[day_name][slot]['type'] == 'dynamic':
-                        if type(schedule_cfg[day_name][slot]['time']) == list:
+                        self.get_fixed_time(day_schedule[slot]['time'])
+                    elif day_schedule[slot]['type'] == 'dynamic':
+                        if type(day_schedule[slot]['time']) == list:
                             # verify time format
                             # will throw exception or return None on faulty format
-                            if self.get_real_time(schedule_cfg[day_name][slot]['time']) is None:
-                                self.log("Config Error: could not parse time parameter '%s'" % str(schedule_cfg[day_name][slot]['time']))
-                                raise ValueError("Invalid configuration format: could not parse time parameter'")
+                            if self.get_real_time(day_schedule[slot]['time']) is None:
+                                self.log("Config Error: could not parse time parameter '%s'" % str(day_schedule[slot]['time']))
+                                raise ValueError("Invalid configuration format: could not parse time parameter.")
                         else:
-                            self.log("Config Error: if time type is 'dynamic', time parameter must be a list, not '%s'" % str(schedule_cfg[day_name][slot]['time']))
-                            raise ValueError("Invalid configuration format: time parameter must be a list, if time type is 'dynamic'")
+                            self.log("Config Error: if time type is 'dynamic', time parameter must be a list, not '%s'." % str(day_schedule[slot]['time']))
+                            raise ValueError("Invalid configuration format: time parameter must be a list, if time type is 'dynamic'.")
                     else:
-                        self.log("Config Error: time type most be either 'fixed' or 'dynamic', not '%s'" % str(schedule_cfg[day_name][slot]['type']))
-                        raise ValueError("Invalid configuration format: time type must be 'fixed' or 'dynamic'")
+                        self.log("Config Error: time type most be either 'fixed' or 'dynamic', not '%s'." % str(day_schedule[slot]['type']))
+                        raise ValueError("Invalid configuration format: time type must be 'fixed' or 'dynamic'.")
 
                     config['schedule'][day_name][slot] = {
-                        'type': schedule_cfg[day_name][slot]['type'],
-                        'time': schedule_cfg[day_name][slot]['time']
+                        'type': day_schedule[slot]['type'],
+                        'time': day_schedule[slot]['time']
                     }
+
         except KeyError as e:
             self.log("Config Error: Missing key '%s'" % (e))
             # re-throw to halt execution
