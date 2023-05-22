@@ -2,11 +2,17 @@ import hassapi as hass
 from datetime import datetime, timedelta, time
 import pprint
 
-#
-# Daytime App
-#
-# Args:
-#
+"""
+DayTime - Day Time Slot Scheduler App
+
+This module provides the DayTime app, which allows scheduling time slots for different parts of the day. It is designed to be used with AppDaemon for home automation purposes.
+
+The DayTime app allows you to define a schedule for each day of the week, specifying different time slots such as morning, day, evening, and night. You can configure fixed times or dynamic times based on sunrise or sunset.
+
+To use the DayTime app, define the schedule in the AppDaemon configuration file (apps.yaml) using the 'daytime' section. See the README.md for more information on the configuration options.
+
+Author: Mattias Månsson
+"""
 
 # TODO what about sunset/sunrise that never happens (up north) or overlaps the next slot?
 # TODO sunset/sunrise with offset
@@ -15,7 +21,7 @@ import pprint
 class DayTime(hass.Hass):
 
     # Default slot names
-    slots = [
+    default_slots = [
         'morning',
         'day',
         'evening',
@@ -46,7 +52,10 @@ class DayTime(hass.Hass):
 
         self.log("Starting day time app")
 
-        self.config = self.load_config()
+        config = self.load_config()
+
+        self.slots = config['slots']
+        self.schedule = config['schedule']
 
         self.setup()
 
@@ -57,53 +66,56 @@ class DayTime(hass.Hass):
 
         self.log("Loading config...")
         
+        config = {}
+
         try:
             # verify optional slots config
             if 'slots' in self.args:
-                slots = self.args['slots']
+                slots_cfg = self.args['slots']
 
-                if not type(slots) == list:
+                if not type(slots_cfg) == list:
                     self.log("Config Error: slots must be a list")
                     raise ValueError("Invalid configuration format: slots must be a list")
 
-                for slot in slots:
+                for slot in slots_cfg:
                     if not type(slot) == str:
                         self.log("Config Error: slot name must be a string, not '%s'" % str(slot))
                         raise ValueError("Invalid configuration format: slot names must be a string")
 
-                self.slots = slots
+                config['slots'] = slots_cfg
+            else:
+                config['slots'] = default_slots
 
-            schedule = self.args['schedule']
+            config['schedule'] = {}
+            schedule_cfg = self.args['schedule']
 
-            config = {}
-
-            # verify and build the internal config from the yaml config in apps.yaml
+            # verify and build the schedule config
             for day_name in DayTime.day_names:
-                config[day_name] = {}
+                config['schedule'][day_name] = {}
 
-                for slot in self.slots:
+                for slot in config['slots']:
                     #verify slot time config
-                    if schedule[day_name][slot]['type'] == 'fixed':
+                    if schedule_cfg[day_name][slot]['type'] == 'fixed':
                         # verify time format
                         # will throw exception on faulty format
-                        self.get_fixed_time(schedule[day_name][slot]['time'])
-                    elif schedule[day_name][slot]['type'] == 'dynamic':
-                        if type(schedule[day_name][slot]['time']) == list:
+                        self.get_fixed_time(schedule_cfg[day_name][slot]['time'])
+                    elif schedule_cfg[day_name][slot]['type'] == 'dynamic':
+                        if type(schedule_cfg[day_name][slot]['time']) == list:
                             # verify time format
                             # will throw exception or return None on faulty format
-                            if self.get_real_time(schedule[day_name][slot]['time']) is None:
-                                self.log("Config Error: could not parse time parameter '%s'" % str(schedule[day_name][slot]['time']))
+                            if self.get_real_time(schedule_cfg[day_name][slot]['time']) is None:
+                                self.log("Config Error: could not parse time parameter '%s'" % str(schedule_cfg[day_name][slot]['time']))
                                 raise ValueError("Invalid configuration format: could not parse time parameter'")
                         else:
-                            self.log("Config Error: if time type is 'dynamic', time parameter must be a list, not '%s'" % str(schedule[day_name][slot]['time']))
+                            self.log("Config Error: if time type is 'dynamic', time parameter must be a list, not '%s'" % str(schedule_cfg[day_name][slot]['time']))
                             raise ValueError("Invalid configuration format: time parameter must be a list, if time type is 'dynamic'")
                     else:
-                        self.log("Config Error: time type most be either 'fixed' or 'dynamic', not '%s'" % str(schedule[day_name][slot]['type']))
+                        self.log("Config Error: time type most be either 'fixed' or 'dynamic', not '%s'" % str(schedule_cfg[day_name][slot]['type']))
                         raise ValueError("Invalid configuration format: time type must be 'fixed' or 'dynamic'")
 
-                    config[day_name][slot] = {
-                        'type': schedule[day_name][slot]['type'],
-                        'time': schedule[day_name][slot]['time']
+                    config['schedule'][day_name][slot] = {
+                        'type': schedule_cfg[day_name][slot]['type'],
+                        'time': schedule_cfg[day_name][slot]['time']
                     }
         except KeyError as e:
             self.log("Config Error: Missing key '%s'" % (e))
@@ -242,7 +254,7 @@ class DayTime(hass.Hass):
 
         weekday = date.weekday()
 
-        day_config = self.config[DayTime.day_names[weekday]]
+        day_config = self.schedule[DayTime.day_names[weekday]]
 
         slot_config = day_config[slot]
 
@@ -250,13 +262,8 @@ class DayTime(hass.Hass):
 
         if slot_config['type'] == 'fixed':
             slot_time = self.get_fixed_time(slot_config['time'])
-
-            self.log("Fixed slot time: %s" % (slot_time))
-
         elif slot_config['type'] == 'dynamic':
             slot_time = self.get_real_time(slot_config['time'])
-
-            self.log("Dynamic slot time: %s" % (slot_time))
 
         return slot_time
 
@@ -282,8 +289,6 @@ class DayTime(hass.Hass):
             else:
                 # Probably just a fixed time then, try to convert...
                 real_time = self.get_fixed_time(dyn_time)
-
-            self.log("Real time (%s): %s" % (dyn_time, real_time))
 
             if result is None or real_time < result:
                 result = real_time
