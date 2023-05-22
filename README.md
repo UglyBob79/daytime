@@ -97,4 +97,4 @@ key | optional | description
 key | optional | type | default | description
 -- | -- | -- | -- | --
 `type` | False | string | None | The type of slot time. Right now this can be set to `fixed` or `dynamic`.
-`time` | False | string or list] | None | The time parameter of the slot configuration. If `type` is set to fixed, this should be a time string, i.e. '13:00', which specifies when this time slot begins. If `dynamic`it can be a list of multiple values, which can be either a normal time string or any of the keywords `sunrise` or `sunset`. If multiple values, the one happening first decides when this slot is triggered.
+`time` | False | string or list | None | The time parameter of the slot configuration. If `type` is set to fixed, this should be a time string, i.e. '13:00', which specifies when this time slot begins. If `dynamic`it can be a list of multiple values, which can be either a normal time string or any of the keywords `sunrise` or `sunset`. If multiple values, the one happening first decides when this slot is triggered.
