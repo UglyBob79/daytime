@@ -1,5 +1,6 @@
 import hassapi as hass
 from datetime import datetime, timedelta, time
+import re
 import pprint
 
 """
@@ -14,11 +15,14 @@ To use the DayTime app, define the schedule in the AppDaemon configuration file 
 Author: Mattias Månsson
 """
 
-# TODO what about sunset/sunrise that never happens (up north) or overlaps the next slot?
-# TODO sunset/sunrise with offset
+# TODO what about sunset/sunrise that never happens (up north) or overlaps the next slot? Think we need to compare datetime instead of time
 # TODO handle weekdays/weekend instead of the specific days
+# TODO remove type: fixed/dynamic, its not really needed
 
 class DayTime(hass.Hass):
+
+    SUNRISE_PATTERN =   r'^sunrise(?P<offset>[+-][0-9]+)?$'
+    SUNSET_PATTERN =    r'^sunset(?P<offset>[+-][0-9]+)?$'
 
     # Default slot names
     default_slots = [
@@ -170,7 +174,7 @@ class DayTime(hass.Hass):
         """
 
         initial_slot = initial if initial else self.slots[0]
-        
+
         state_attributes = {
             "options": self.slots,
             "initial": initial_slot,
@@ -194,6 +198,8 @@ class DayTime(hass.Hass):
         time_now = now.time()
 
         self.log("Time now: %s" % (time_now))
+        self.log("Sunrise today: %s" % (self.sunrise().time()))
+        self.log("Sunset today: %s" % (self.sunset().time()))
 
         day_schedule = self.gen_day_schedule(now)
 
@@ -301,15 +307,39 @@ class DayTime(hass.Hass):
         result = None
 
         for dyn_time in dyn_config:
-            # The sunrise calculation will always be for the current day,
-            # but usually it is just used for +1 day or so...
-            if dyn_time == 'sunrise':
-                real_time = self.sunrise().time()
-            elif dyn_time == 'sunset':
-                real_time = self.sunset().time()
-            else:
-                # Probably just a fixed time then, try to convert...
-                real_time = self.get_fixed_time(dyn_time)
+            # The sunrise calculation will always be for the current day, but
+            # its usually max one day wrong, which for these calculations 
+            # doesn't really matter much
+
+            # TODO remove duplicated code, maybe one common pattern?
+            match = re.match(self.SUNRISE_PATTERN, dyn_time)
+            if match:
+                # check if using optional offset
+                offset = 0
+                if match.group('offset') is not None:
+                    offset = int(match.group('offset'))
+                real_time = (self.sunrise() + timedelta(minutes=offset)).time()
+
+                if result is None or real_time < result:
+                    result = real_time
+                
+                continue
+
+            match = re.match(self.SUNSET_PATTERN, dyn_time)
+            if match:
+                # check if using optional offset
+                offset = 0
+                if match.group('offset') is not None:
+                    offset = int(match.group('offset'))
+                real_time = (self.sunset() + timedelta(minutes=offset)).time()
+
+                if result is None or real_time < result:
+                    result = real_time
+                
+                continue
+
+            # Probably just a fixed time then, try to convert...
+            real_time = self.get_fixed_time(dyn_time)
 
             if result is None or real_time < result:
                 result = real_time
