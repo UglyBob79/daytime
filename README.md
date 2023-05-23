@@ -78,13 +78,14 @@ key | optional | type | default | description
 -- | -- | -- | -- | --
 `module` | False | string | daytime | The module name of the app.
 `class` | False | string | DayTime | The name of the python class.
-`slots` | True | list | 'morning', 'day', 'evening', 'night' | The time slot names of every day.
+`slots` | True | list | `morning`, `day`, `evening`, `night` | The time slot names of every day.
 `schedule` | False | list | N/A | The schedule section used to define the time slots
 
 #### Day configuration
 
 key | optional | description
 -- | -- | --
+`name` | False | Name of the day we are scheduling. This can also use the wildcards `weekdays`, `weekend` or `any`. If using wildcards, the priority will first be the specific name of the day, then `weekdays`/`weekend` and lastly `any`.
 `morning` | False | Morning slot of the day
 `day` | False | Day slot of the day
 `evening` | False | Evening slot of the day
