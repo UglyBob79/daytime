@@ -151,19 +151,17 @@ class DayTime(hass.Hass):
         and set up needed timers.
         """
 
-        # create an input selector for our time of day slot
-        self.daytime_slot = self.create_time_slot_selector()
-
         now = self.get_time()
 
         self.current = self.calc_current_slot(now)
-        self.set_state(self.daytime_slot, state=self.current)
-        
         self.log("Current slot: %s" % self.current)
+
+        # create an input selector for our time of day slot
+        self.daytime_slot = self.create_time_slot_selector(self.current)        
 
         self.schedule_next_timer(now)
 
-    def create_time_slot_selector(self):
+    def create_time_slot_selector(self, initial=None):
         """
         Create a input selector representing the current time slot.
 
@@ -171,12 +169,14 @@ class DayTime(hass.Hass):
         str: The name of the input selector entity.    
         """
 
+        initial_slot = initial if initial else self.slots[0]
+        
         state_attributes = {
             "options": self.slots,
-            "initial": self.slots[0],
+            "initial": initial_slot,
         }
 
-        self.set_state(DayTime.time_slot_entity, state=self.slots[0], attributes=state_attributes)
+        self.set_state(DayTime.time_slot_entity, state=initial_slot, attributes=state_attributes)
         
         return DayTime.time_slot_entity
 
