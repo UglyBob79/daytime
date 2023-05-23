@@ -16,7 +16,7 @@ This application could be used for multiple purposes, but the intent was to spec
 
 ## App configuration
 
-DayTime needs a schedule to run and it is configured directly in the AppDaemon's apps.yaml file as a schedule sub-section for this app. Here's an exemplary configuration for this app. Adjust the values as you wish.
+DayTime needs to be configured with at least a schedule for the week. It can be configured either directly in AppDaemon's 'apps.yaml' config file or in a separate 'daytime.yaml' in the same folder. Here's an exemplary configuration for this app. Adjust the values as you wish.
 
 **Note:** For now, all time values have to be specified in 24H format and they should preferable not overlap as that can create weird behavior.
 
