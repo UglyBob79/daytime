@@ -12,11 +12,11 @@ As this is an AppDaemon application, you would of course need AppDaemon to run i
 
 ## Usage
 
-This application could be used for multiple purposes, but the intent was to specify a schedule and then let other apps or Home assistant listen to state changes from the entity representing the current time slot of the day. This entity is currently hard-coded as `input_select.daytime_slot` and will be set up as read-only to prevent other apps or users from changing it. By default, the time slot can be any of the values `morning`, `day`, `evening` or `night`, but these names and number of slots can be overriden in config.
+This application could be used for multiple purposes, but the intent was to specify a schedule and then let other apps or Home assistant listen to state changes from the entity representing the current time slot of the day. This entity is currently hard-coded as `input_select.daytime_slot` and will be set up as read-only to prevent other apps or users from changing it. By default, the time slot can be any of the values `morning`, `day`, `evening` or `night`, but these names and number of slots can be overriden in config. All defined slots must be present in each schedule entry.
 
 ## App configuration
 
-DayTime needs to be configured with at least a schedule for the week. It can be configured either directly in AppDaemon's `apps.yaml` config file or in a separate `daytime.yaml` in the same folder. Here's an exemplary configuration for this app. Adjust the values as you wish.
+DayTime needs to be configured with at least a schedule for the week. It can be configured either directly in AppDaemon's `apps.yaml` config file or in a separate `daytime.yaml` in the same folder. Here's an exemplary configuration for this app, showing how the slot names can be overridden and with different schedules for each day of the week.
 
 **Note:** For now, all time values have to be specified in 24H format and they should preferable not overlap as that can create weird behavior.
 
@@ -76,11 +76,6 @@ If your schedule repeats itself, you could instead of adding an entry for each d
 daytime:
   module: daytime
   class: DayTime
-  slots:
-    - morning
-    - day
-    - evening
-    - night
   schedule:
     weekday:
       morning:
