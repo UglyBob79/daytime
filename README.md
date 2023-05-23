@@ -108,7 +108,6 @@ daytime:
       night:
         type: fixed
         time: '23:30'
-    ...
     any:
       morning:
         type: fixed
