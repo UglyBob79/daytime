@@ -71,6 +71,59 @@ daytime:
         type: fixed
         time: '23:59'
 ```
+If your schedule repeats itself, you could instead of adding an entry for each day use the special wildcard days `weekdays`, `weekend` or `any`. See another example below.
+```yaml
+daytime:
+  module: daytime
+  class: DayTime
+  slots:
+    - morning
+    - day
+    - evening
+    - night
+  schedule:
+    weekday:
+      morning:
+        type: fixed
+        time: '07:30'
+      day:
+        type: fixed
+        time: '12:00'
+      evening:
+        type: dynamic
+        time: [sunset, '18:00']
+      night:
+        type: fixed
+        time: '23:30'
+    saturday:
+      morning:
+        type: fixed
+        time: '07:30'
+      day:
+        type: fixed
+        time: '12:00'
+      evening:
+        type: dynamic
+        time: [sunset, '18:00']
+      night:
+        type: fixed
+        time: '23:30'
+    ...
+    any:
+      morning:
+        type: fixed
+        time: '10:00'
+      day:
+        type: fixed
+        time: '12:00'
+      evening:
+        type: dynamic
+        time: [sunset, '18:00']
+      night:
+        type: fixed
+        time: '23:59'
+```
+In this schedule, the `weekday` entry would match Monday to Friday, `saturday` would of course match Saturday and `any`would match any day not matched by any other entry, in this case Sundays.
 
 ### Configuration
 
