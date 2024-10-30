@@ -73,7 +73,7 @@ class DayTime(hass.Hass):
         """
 
         self.log("Loading config...")
-        
+
         config = {}
 
         try:
@@ -161,7 +161,7 @@ class DayTime(hass.Hass):
         self.log("Current slot: %s" % self.current)
 
         # create an input selector for our time of day slot
-        self.daytime_slot = self.create_time_slot_selector(self.current)        
+        self.daytime_slot = self.create_time_slot_selector(self.current)
 
         self.schedule_next_timer(now)
 
@@ -170,7 +170,7 @@ class DayTime(hass.Hass):
         Create a input selector representing the current time slot.
 
         Returns:
-        str: The name of the input selector entity.    
+        str: The name of the input selector entity.
         """
 
         initial_slot = initial if initial else self.slots[0]
@@ -181,7 +181,7 @@ class DayTime(hass.Hass):
         }
 
         self.set_state(DayTime.time_slot_entity, state=initial_slot, attributes=state_attributes)
-        
+
         return DayTime.time_slot_entity
 
     def calc_current_slot(self, now: datetime):
@@ -212,7 +212,8 @@ class DayTime(hass.Hass):
                 return slot
                 break
 
-        return None
+        # If we didnt't find a match, it means its the last slot, but it passed midnight, so default to the last slot
+        return self.slots[-1]
 
     def schedule_next_timer(self, now: datetime):
         """
@@ -249,7 +250,7 @@ class DayTime(hass.Hass):
         self.log("Slot Timer: (%s, %s)" % (self.current, kwargs['slot']))
 
         self.current = kwargs['slot']
-        
+
         self.set_state(self.daytime_slot, state=kwargs['slot'])
 
         self.schedule_next_timer(self.get_time())
@@ -308,7 +309,7 @@ class DayTime(hass.Hass):
 
         for dyn_time in dyn_config:
             # The sunrise calculation will always be for the current day, but
-            # its usually max one day wrong, which for these calculations 
+            # its usually max one day wrong, which for these calculations
             # doesn't really matter much
 
             # TODO remove duplicated code, maybe one common pattern?
@@ -322,7 +323,7 @@ class DayTime(hass.Hass):
 
                 if result is None or real_time < result:
                     result = real_time
-                
+
                 continue
 
             match = re.match(self.SUNSET_PATTERN, dyn_time)
@@ -335,7 +336,7 @@ class DayTime(hass.Hass):
 
                 if result is None or real_time < result:
                     result = real_time
-                
+
                 continue
 
             # Probably just a fixed time then, try to convert...
